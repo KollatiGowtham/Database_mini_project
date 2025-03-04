@@ -1,0 +1,149 @@
+from tkinter import *
+from tkinter import ttk, messagebox
+import mysql.connector
+def connect_db():
+    return mysql.connector.connect(
+        host="localhost",
+        user="root",
+        password="Gowtham2005@",
+        database="StudentDB"
+    )
+
+
+class Student:
+    def __init__(self, main):
+        self.main = main
+        self.T_Frame = Frame(self.main, height=50, width=1200, background="red", bd=2, relief=GROOVE)
+        self.T_Frame.pack()
+        self.Title = Label(self.T_Frame, text="Student Management System", font="arial 20 bold", width=1200,
+                           bg="pink")
+        self.Title.pack()
+
+        self.Frame_1 = Frame(self.main, height=580, width=400, bd=2, relief=GROOVE, bg="lightgreen")
+        self.Frame_1.pack(side=LEFT)
+        self.Frame_1.pack_propagate(0)
+
+        Label(self.Frame_1, text="Student Details", bg="green", font="arial 12 bold").place(x=20, y=20)
+
+        self.Id_Entry = self.create_entry("ID", 40, 60)
+        self.Name_Entry = self.create_entry("Name", 40, 100)
+        self.Age_Entry = self.create_entry("Age", 40, 140)
+        self.DOB_Entry = self.create_entry("DOB", 40, 180)
+        self.Gender_Entry = self.create_entry("Gender", 40, 220)
+        self.City_Entry = self.create_entry("City", 40, 260)
+
+        self.Button_Frame = Frame(self.Frame_1, height=250, width=250, relief=GROOVE, bd=2, bg="green")
+        self.Button_Frame.place(x=80, y=300)
+
+        self.create_button("ADD", self.add_record)
+        self.create_button("Delete", self.delete_record)
+        self.create_button("Update", self.update_record)
+        self.create_button("Clear", self.clear_entries)
+
+        self.tree = ttk.Treeview(self.main, columns=("c1", "c2", "c3", "c4", "c5", "c6"), show='headings', height=25)
+        self.setup_treeview()
+        self.tree.pack()
+        self.load_records()
+
+    def create_entry(self, label_text, x, y):
+        Label(self.Frame_1, text=label_text, bg="lightgreen", font="arial 11 bold").place(x=x, y=y)
+        entry = Entry(self.Frame_1, width=40)
+        entry.place(x=150, y=y)
+        return entry
+
+    def create_button(self, text, command):
+        Button(self.Button_Frame, text=text, width=25, font="arial 11 bold", command=command).pack()
+
+    def setup_treeview(self):
+        columns = ["ID", "Name", "Age", "DOB", "Gender", "City"]
+        widths = [40, 100, 115, 110, 110, 100]
+        for i, col in enumerate(columns):
+            self.tree.column(f"#{i + 1}", anchor=CENTER, width=widths[i])
+            self.tree.heading(f'#{i + 1}', text=col)
+
+    def load_records(self):
+        conn = connect_db()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM Student")
+        records = cursor.fetchall()
+        for record in records:
+            self.tree.insert("", END, values=record)
+        conn.close()
+
+    def add_record(self):
+        id = self.Id_Entry.get()
+        name = self.Name_Entry.get()
+        age = self.Age_Entry.get()
+        dob = self.DOB_Entry.get()
+        gender = self.Gender_Entry.get()
+        city = self.City_Entry.get()
+
+        conn = connect_db()
+        cursor = conn.cursor()
+        cursor.execute("SELECT ID FROM Student WHERE ID = %s", (id,))
+        if cursor.fetchone():
+            messagebox.showerror("Error", "ID already exists!")
+            conn.close()
+            return
+
+        cursor.execute("INSERT INTO Student (ID, Name, Age, DOB, Gender, City) VALUES (%s, %s, %s, %s, %s, %s)",
+                       (id, name, age, dob, gender, city))
+        conn.commit()
+        conn.close()
+
+        self.tree.insert("", index=0, values=(id, name, age, dob, gender, city))
+        messagebox.showinfo("Success", "Student added successfully.")
+
+    def delete_record(self):
+        selected_item = self.tree.selection()
+        if not selected_item:
+            messagebox.showwarning("Warning", "No record selected to delete.")
+            return
+
+        item = self.tree.item(selected_item[0])
+        id = item["values"][0]
+
+        conn = connect_db()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM Student WHERE ID = %s", (id,))
+        conn.commit()
+        conn.close()
+
+        self.tree.delete(selected_item[0])
+        messagebox.showinfo("Success", "Record deleted successfully.")
+
+    def update_record(self):
+        selected_item = self.tree.selection()
+        if not selected_item:
+            messagebox.showwarning("Warning", "No record selected to update.")
+            return
+
+        id = self.Id_Entry.get()
+        name = self.Name_Entry.get()
+        age = self.Age_Entry.get()
+        dob = self.DOB_Entry.get()
+        gender = self.Gender_Entry.get()
+        city = self.City_Entry.get()
+
+        conn = connect_db()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE Student SET Name=%s, Age=%s, DOB=%s, Gender=%s, City=%s WHERE ID=%s",
+                       (name, age, dob, gender, city, id))
+        conn.commit()
+        conn.close()
+
+        self.tree.item(selected_item[0], values=(id, name, age, dob, gender, city))
+        messagebox.showinfo("Success", "Record updated successfully.")
+
+    def clear_entries(self):
+        for entry in [self.Id_Entry, self.Name_Entry, self.Age_Entry, self.DOB_Entry, self.Gender_Entry,
+                      self.City_Entry]:
+            entry.delete(0, END)
+
+
+main = Tk()
+main.title("Student Management System")
+main.geometry("1200x600")
+
+Student(main)
+main.mainloop()
