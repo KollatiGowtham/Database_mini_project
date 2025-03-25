@@ -1,0 +1,173 @@
+from tkinter import *
+from tkinter import messagebox,ttk
+import mysql.connector
+from decimal import Decimal
+
+def connect_db():
+    return mysql.connector.connect(
+        host="localhost",
+        user="root",
+        password="Gowtham2005@",
+        database="BankDB"
+    )
+
+class BankApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Bank Management System")
+        self.root.geometry("800x800")
+
+        Label(root, text="Bank Management System", bg="yellow",font=("Segoe Print", 16, "bold")).pack(pady=10)
+
+
+        Label(root, text="Name:",bg="light green",font=("Colonna MT", 9, "bold")).pack(pady=10)
+        self.name_entry = Entry(root)
+        self.name_entry.pack()
+
+        Label(root, text="Email:", bg="light green",font=("Colonna MT", 9, "bold")).pack(pady=10)
+        self.email_entry = Entry(root)
+        self.email_entry.pack()
+
+
+        Button(root, bg="skyblue", font=("Eras Medium ITC", 9, "bold"), text="Create Account", command=self.create_account).pack(pady=15)
+        Button(root, bg="skyblue", font=("Eras Medium ITC", 9, "bold"), text="Deposit Money", command=self.deposit_money).pack(pady=15)
+        Button(root, bg="skyblue", font=("Eras Medium ITC", 9, "bold"), text="Withdraw Money", command=self.withdraw_money).pack(pady=15)
+        Button(root, bg="skyblue", font=("Eras Medium ITC", 9, "bold"), text="Check Balance", command=self.check_balance).pack(pady=15)
+
+    def create_account(self):
+        name = self.name_entry.get()
+        email = self.email_entry.get()
+
+        if not name or not email:
+            messagebox.showerror("Error", "All fields are required!")
+            return
+
+        conn = connect_db()
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute("INSERT INTO accounts (name, email, balance) VALUES (%s, %s, %s)", (name, email, 0.00))
+            conn.commit()
+            messagebox.showinfo("Success", "Account Created Successfully!")
+        except mysql.connector.IntegrityError:
+            messagebox.showerror("Error", "Email already exists!")
+        finally:
+            cursor.close()
+            conn.close()
+
+
+
+    def deposit_money(self):
+        email = self.email_entry.get()
+        amount = self.get_amount("Deposit Amount")
+
+        if not email or amount is None:
+            messagebox.showerror("Error", "Email and amount are required!")
+            return
+
+        conn = connect_db()
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT id, balance FROM accounts WHERE email = %s", (email,))
+        account = cursor.fetchone()
+
+        if not account:
+            messagebox.showerror("Error", "Account not found!")
+        else:
+            new_balance = Decimal(account[1]) + Decimal(amount)
+            cursor.execute("UPDATE accounts SET balance = %s WHERE id = %s", (new_balance, account[0]))
+            cursor.execute("INSERT INTO transactions (account_id, type, amount) VALUES (%s, 'Deposit', %s)",
+                           (account[0], amount))
+            conn.commit()
+            messagebox.showinfo("Success", f"Deposited ₹{amount}. New Balance: ₹{new_balance}")
+
+        cursor.close()
+        conn.close()
+
+    from decimal import Decimal
+
+    def withdraw_money(self):
+        email = self.email_entry.get()
+        amount = self.get_amount("Withdrawal Amount")
+
+        if not email or amount is None:
+            messagebox.showerror("Error", "Email and amount are required!")
+            return
+
+        conn = connect_db()
+        cursor = conn.cursor()
+
+        # Fetch account details
+        cursor.execute("SELECT id, balance FROM accounts WHERE email = %s", (email,))
+        account = cursor.fetchone()
+
+        print(f"Debug: Retrieved account - {account}")  # Debugging print
+
+        if not account:
+            messagebox.showerror("Error", "Account not found!")
+        else:
+            balance = Decimal(account[1])  # Ensure balance is Decimal
+            amount = Decimal(amount)  # Convert withdrawal amount to Decimal
+
+            if balance < amount:
+                messagebox.showerror("Error", "Insufficient balance!")
+            else:
+                new_balance = balance - amount  # Perform subtraction
+                cursor.execute("UPDATE accounts SET balance = %s WHERE id = %s", (new_balance, account[0]))
+                cursor.execute("INSERT INTO transactions (account_id, type, amount) VALUES (%s, 'Withdrawal', %s)",
+                               (account[0], amount))
+                conn.commit()  # Ensure transaction is committed
+                messagebox.showinfo("Success", f"Withdraw ₹{amount}. New Balance: ₹{new_balance}")
+
+        cursor.close()
+        conn.close()
+
+    def check_balance(self):
+        email = self.email_entry.get()
+
+        if not email:
+            messagebox.showerror("Error", "Email is required!")
+            return
+
+        conn = connect_db()
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT balance FROM accounts WHERE email = %s", (email,))
+        account = cursor.fetchone()
+
+        if not account:
+            messagebox.showerror("Error", "Account not found!")
+        else:
+            messagebox.showinfo("Balance", f"Your current balance: ₹{account[0]}")
+
+        cursor.close()
+        conn.close()
+
+    def get_amount(self, prompt):
+        amount_window = Toplevel(self.root)
+        amount_window.title(prompt)
+        amount_window.geometry("250x150")
+
+        Label(amount_window, text=prompt).pack()
+        amount_entry = Entry(amount_window)
+        amount_entry.pack()
+
+        def submit():
+            try:
+                value = float(amount_entry.get())
+                if value <= 0:
+                    messagebox.showerror("Error", "Amount must be greater than zero!")
+                    return
+                self.amount = value
+                amount_window.destroy()
+            except ValueError:
+                messagebox.showerror("Error", "Invalid amount!")
+
+        Button(amount_window, text="OK", command=submit).pack()
+        amount_window.wait_window()
+        return getattr(self, 'amount', None)
+
+
+root = Tk()
+app = BankApp(root)
+root.mainloop()

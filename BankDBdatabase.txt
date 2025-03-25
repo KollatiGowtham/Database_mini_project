@@ -1,0 +1,20 @@
+CREATE DATABASE BankDB;
+USE BankDB;
+
+CREATE TABLE accounts (
+    id INT auto_increment PRIMARY KEY,
+    name VARCHAR(100),
+    email VARCHAR(100) UNIQUE,
+    balance DECIMAL(10,2) DEFAULT 0.00
+);
+
+CREATE TABLE transactions (
+    id INT auto_increment PRIMARY KEY,
+    account_id INT,
+    type ENUM('Deposit', 'Withdrawal'),
+    amount DECIMAL(10,2),
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE
+);
+select * from accounts;
+select * from transactions;
